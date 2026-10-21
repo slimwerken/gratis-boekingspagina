@@ -1,7 +1,7 @@
 # Installeer mij: je eigen boekingspagina, gratis
 
-Calendly vraagt 10 tot 20 euro per maand om mensen een tijd in je agenda te laten kiezen.
-Deze pagina doet hetzelfde en kost je niks:
+Bij Calendly heb je gratis één soort afspraak. Wil je er meer, dan betaal je minstens 10 dollar per maand
+([calendly.com/pricing](https://calendly.com/pricing), 21 oktober 2026). Deze pagina doet hetzelfde en kost je niks:
 
 - mensen kiezen een dag en een tijd die echt vrij is in je agenda
 - de afspraak staat meteen in je Google Agenda of Outlook, met een Meet- of Teams-link
