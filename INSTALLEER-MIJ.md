@@ -26,9 +26,15 @@ Je hoeft niks te programmeren. Claude doet het werk, jij klikt waar het moet.
 
 **Doe dit**
 
-1. Pak deze map (download of kopieer hem) en zet hem ergens op je computer.
-2. Open de Claude-app, klik op **Code**, kies **Open folder...** en kies deze map.
+1. Maak op je computer een lege map, bijvoorbeeld "Boekingspagina" in Documenten.
+2. Open de Claude-app, klik op **Code**, kies **Open folder...** en kies die map.
 3. Plak deze zin:
+
+```
+Haal https://github.com/slimwerken/gratis-boekingspagina binnen in deze map, lees daarna INSTALLEER-MIJ.md en installeer mijn boekingspagina. Neem me stap voor stap mee en leg bij elke stap uit wat je doet en waarom.
+```
+
+Heb je de map al (gedownload als zip en uitgepakt)? Open die map en plak:
 
 ```
 Lees INSTALLEER-MIJ.md en installeer mijn boekingspagina. Neem me stap voor stap mee en leg bij elke stap uit wat je doet en waarom.
@@ -60,6 +66,10 @@ Je installeert een boekingspagina voor iemand die niet technisch is. Volg deze f
 - Werk je in de gewone chat (je kunt geen bestanden lezen of opdrachten draaien)? Zeg dat eerlijk en stuur de gebruiker naar [claude.ai/download](https://claude.ai/download): Claude-app, tabblad **Code**, deze map openen, zin opnieuw plakken.
 - Heeft de gebruiker geen Google- of Microsoft-account voor zijn agenda? Een gratis Gmail-account werkt. Laat hem er een maken op accounts.google.com en ga dan verder.
 - Wil de gebruiker het grondig leren in plaats van alleen installeren? Wijs op [hetmainframe.nl](https://hetmainframe.nl).
+
+### Fase 0: de bestanden
+
+Staat `convex/instellingen.ts` nog niet in de map waarin je werkt, haal de bestanden dan op: `git clone https://github.com/slimwerken/gratis-boekingspagina .` (lege map) of, zonder git, download `https://github.com/slimwerken/gratis-boekingspagina/archive/refs/heads/main.zip` en pak hem hier uit. Leg kort uit: "Ik haal nu de bestanden van de boekingspagina op. Dat is de code die straks op je eigen server draait."
 
 ### Fase 1: kennismaken (5 minuten)
 

@@ -4,10 +4,10 @@ Je eigen Calendly, zonder abonnement. Mensen kiezen een vrije tijd in je agenda,
 staat meteen in Google Agenda of Outlook (met Meet- of Teams-link), en iedereen krijgt de
 juiste mails. Draait op het gratis plan van [Convex](https://convex.dev); geen hosting nodig.
 
-**Installeren:** open deze map in Claude Code (de Claude-app, tabblad Code) en plak:
+**Installeren:** maak een lege map, open hem in Claude Code (de Claude-app, tabblad Code) en plak:
 
 ```
-Lees INSTALLEER-MIJ.md en installeer mijn boekingspagina. Neem me stap voor stap mee en leg bij elke stap uit wat je doet en waarom.
+Haal https://github.com/slimwerken/gratis-boekingspagina binnen in deze map, lees daarna INSTALLEER-MIJ.md en installeer mijn boekingspagina. Neem me stap voor stap mee en leg bij elke stap uit wat je doet en waarom.
 ```
 
 ## Wat het doet
