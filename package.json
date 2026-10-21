@@ -1,0 +1,22 @@
+{
+  "name": "gratis-boekingspagina",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Je eigen boekingspagina, gratis, zonder Calendly. Google Agenda of Outlook, mail via je eigen Gmail of Outlook.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "pagina": "node scripts/bouw-pagina.mjs",
+    "uitrollen": "node scripts/bouw-pagina.mjs && convex deploy -y",
+    "koppel": "node scripts/koppel.mjs",
+    "controle": "node scripts/controle.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "convex": "^1.47.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Plan een afspraak</title>
+  <!--
+    Gratis boekingspagina. Een bestand, geen build: `npm run uitrollen` zet hem in
+    convex/pagina_html.ts en Convex serveert hem zelf.
+    Routes: / (overzicht), /<slug> (boeken), /beheer/<token> (verzetten/annuleren).
+    Kleuren, naam en teksten komen uit convex/instellingen.ts via /api/pagina.
+  -->
+  <style>
+    :root { --ink:#0F172A; --accent:#2563EB; --accent-zacht:rgba(37,99,235,.10); --accent-zachter:rgba(37,99,235,.18); --bg:#F4F5F7; --grijs:#6B7280; --lijn:#E5E4EC; --wit:#fff; --ok:#14cc8e; --fout:#e5484d; }
+    * { box-sizing:border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+    a { color:var(--accent); }
+    .pagina { max-width:980px; margin:0 auto; padding:24px 16px 48px; }
+    .kop { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+    .kop img { max-height:36px; max-width:200px; width:auto; }
+    .kop span { font-weight:700; font-size:17px; letter-spacing:-0.01em; }
+    .kop a { text-decoration:none; color:inherit; }
+    .kaart { background:var(--wit); border-radius:28px; padding:28px; box-shadow:0 1px 0 rgba(10,10,20,.04), 0 12px 40px -24px rgba(10,10,20,.25); }
+    .raster { display:grid; grid-template-columns:1fr; gap:28px; }
+    @media (min-width: 820px) { .raster { grid-template-columns:300px 1fr; } .kaart { padding:36px; } }
+    .info h1 { font-size:26px; line-height:1.15; margin:0 0 10px; letter-spacing:-0.02em; }
+    .info .met { color:var(--grijs); font-size:14px; margin:0 0 14px; }
+    .badge { display:inline-flex; align-items:center; gap:6px; background:var(--bg); border-radius:999px; padding:6px 12px; font-size:13px; font-weight:600; margin:0 8px 8px 0; }
+    .info p.omschrijving { color:#4B5563; font-size:14.5px; line-height:1.6; white-space:pre-line; margin:12px 0 0; }
+    .stap-titel { font-size:18px; font-weight:700; margin:0 0 14px; letter-spacing:-0.01em; }
+    .maand-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .maand-nav strong { font-size:16px; text-transform:capitalize; }
+    .pijl { border:1px solid var(--lijn); background:var(--wit); width:36px; height:36px; border-radius:12px; cursor:pointer; font-size:16px; color:var(--ink); }
+    .pijl:disabled { opacity:.35; cursor:default; }
+    .kalender { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+    .kalender .wd { text-align:center; font-size:11px; color:var(--grijs); font-weight:600; text-transform:uppercase; letter-spacing:.06em; padding:4px 0; }
+    .dag { aspect-ratio:1; border:none; border-radius:14px; background:transparent; font:inherit; font-size:14.5px; color:#B8B6C4; cursor:default; }
+    .dag.vrij { background:var(--accent-zacht); color:var(--accent); font-weight:700; cursor:pointer; }
+    .dag.vrij:hover { background:var(--accent-zachter); }
+    .dag.gekozen { background:var(--accent); color:#fff; }
+    .dag.vandaag { text-decoration:underline; text-underline-offset:3px; }
+    .tijdzone { margin-top:16px; font-size:13px; color:var(--grijs); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .tijdzone select { font:inherit; font-size:13px; border:1px solid var(--lijn); border-radius:10px; padding:6px 8px; background:var(--wit); color:var(--ink); max-width:100%; }
+    .tijden { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
+    .tijd { border:1.5px solid var(--accent); color:var(--accent); background:var(--wit); border-radius:12px; padding:11px 8px; font:inherit; font-weight:700; font-size:14.5px; cursor:pointer; }
+    .tijd:hover { background:var(--accent-zacht); }
+    .terug { background:none; border:none; color:var(--grijs); font:inherit; font-size:13.5px; cursor:pointer; padding:0; margin-bottom:12px; }
+    .terug:hover { color:var(--ink); }
+    .keuze { background:var(--bg); border-radius:16px; padding:12px 14px; font-size:14px; margin-bottom:18px; display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .keuze b { display:block; font-size:15px; }
+    .keuze button { background:none; border:none; color:var(--accent); font:inherit; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    label { display:block; font-size:14px; font-weight:600; margin:0 0 6px; }
+    label .opt { color:var(--grijs); font-weight:500; }
+    .veld { margin-bottom:16px; }
+    input[type=text], input[type=email], input[type=tel], textarea, select.keuze-select { width:100%; font:inherit; font-size:15px; padding:12px 14px; border:1.5px solid var(--lijn); border-radius:14px; background:var(--wit); color:var(--ink); }
+    textarea { min-height:96px; resize:vertical; }
+    input:focus, textarea:focus, select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-zacht); }
+    .opties label { font-weight:500; display:flex; gap:8px; align-items:flex-start; margin:0 0 8px; font-size:14.5px; }
+    .opties input { margin-top:3px; }
+    .knop { display:inline-flex; align-items:center; justify-content:center; gap:8px; background:var(--accent); color:#fff; border:none; border-radius:999px; padding:14px 26px; font:inherit; font-weight:700; font-size:15px; cursor:pointer; text-decoration:none; }
+    .knop:hover { background:var(--accent); }
+    .knop:disabled { opacity:.6; cursor:wait; }
+    .knop.licht { background:var(--bg); color:var(--ink); }
+    .knop.rood { background:#fff; color:var(--fout); border:1.5px solid var(--fout); }
+    .knoppen { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+    .melding { border-radius:14px; padding:12px 14px; font-size:14px; margin:0 0 16px; line-height:1.5; }
+    .melding.fout { background:#FDECEC; color:#9b1c22; }
+    .melding.info { background:var(--accent-zacht); color:var(--ink); }
+    .laden { color:var(--grijs); font-size:14px; padding:20px 0; }
+    .klaar h2 { font-size:24px; margin:0 0 8px; letter-spacing:-0.02em; }
+    .klaar .vink { width:56px; height:56px; border-radius:999px; background:#E4FAF1; color:#0a8f5f; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:16px; }
+    .detail { border-top:1px solid var(--lijn); padding:12px 0; display:grid; grid-template-columns:110px 1fr; gap:10px; font-size:14.5px; }
+    .detail span:first-child { color:var(--grijs); }
+    .lijst a.type { display:block; text-decoration:none; color:inherit; border:1.5px solid var(--lijn); border-radius:18px; padding:16px 18px; margin-bottom:10px; }
+    .lijst a.type:hover { border-color:var(--accent); }
+    .lijst a.type b { display:block; font-size:16px; margin-bottom:4px; }
+    .lijst a.type small { color:var(--grijs); font-size:13px; }
+    .honing { position:absolute; left:-9999px; top:-9999px; height:0; width:0; opacity:0; }
+    .voet { text-align:center; color:var(--grijs); font-size:12px; margin-top:24px; }
+    .voet a { color:var(--grijs); }
+    .stil { color:var(--grijs); font-size:13.5px; line-height:1.55; }
+  </style>
+</head>
+<body>
+  <div class="pagina">
+    <div class="kop" id="kop"></div>
+    <div class="kaart" id="app"><div class="laden">Even laden...</div></div>
+    <p class="voet" id="voet"></p>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  // Draait de pagina op de Convex-site zelf, dan is de API hetzelfde adres.
+  // Host je de pagina ergens anders, zet dan voor dit script: window.BOEKING_API = 'https://<jouw-deployment>.convex.site';
+  var API = (window.BOEKING_API || location.origin).replace(/\/+$/, '');
+  var BASIS = (window.BOEKING_BASIS || '').replace(/\/+$/, '');
+  var app = document.getElementById('app');
+  var qs = new URLSearchParams(location.search);
+  var SLEUTEL_KEY = 'boekingspagina_beheersleutel'; // hier, VOOR de routering onderaan: een var eronder is op dat moment nog undefined
+  var P = { eigenaar: '', bedrijf: '', contact: '', tijdzone: 'Europe/Amsterdam', titel: 'Plan een afspraak', intro: '' };
+
+  // ── Kleine hulpjes ──────────────────────────────────────────────────────
+  function el(tag, attrs, kinderen) {
+    var e = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === 'class') e.className = attrs[k];
+      else if (k === 'text') e.textContent = attrs[k];
+      else if (k.slice(0, 2) === 'on') { if (attrs[k]) e.addEventListener(k.slice(2), attrs[k]); }
+      else if (attrs[k] !== undefined && attrs[k] !== null && attrs[k] !== false) e.setAttribute(k, attrs[k] === true ? '' : attrs[k]);
+    });
+    (kinderen || []).forEach(function (k) { if (k == null) return; e.appendChild(typeof k === 'string' ? document.createTextNode(k) : k); });
+    return e;
+  }
+  function leeg(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+  function toon() { leeg(app); for (var i = 0; i < arguments.length; i++) if (arguments[i]) app.appendChild(arguments[i]); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function voornaam(n) { return String(n || '').trim().split(/\s+/)[0] || ''; }
+
+  function delen(ms, tz) {
+    var f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    var p = {}; f.formatToParts(new Date(ms)).forEach(function (x) { p[x.type] = x.value; });
+    return { j: +p.year, m: +p.month, d: +p.day, u: +p.hour === 24 ? 0 : +p.hour, mi: +p.minute };
+  }
+  function dagSleutel(ms, tz) { var d = delen(ms, tz); return d.j + '-' + pad(d.m) + '-' + pad(d.d); }
+  function tijdTekst(ms, tz) { return new Intl.DateTimeFormat('nl-NL', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ms)); }
+  function dagTekst(ms, tz) { return new Intl.DateTimeFormat('nl-NL', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(ms)); }
+  function maandTekst(j, m) { return new Intl.DateTimeFormat('nl-NL', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(j, m - 1, 1))); }
+  function tzLabel(tz) { return tz.replace(/_/g, ' '); }
+
+  var browserTz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Europe/Amsterdam';
+  var tijdzone = browserTz;
+  function tijdzones() {
+    var lijst = [];
+    try { lijst = Intl.supportedValuesOf('timeZone'); } catch (e) { lijst = ['Europe/Amsterdam', 'Europe/Brussels', 'Europe/London', 'Europe/Berlin', 'Europe/Paris', 'Europe/Madrid', 'Europe/Lisbon', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Asia/Dubai', 'Asia/Singapore', 'Australia/Sydney']; }
+    if (lijst.indexOf(browserTz) < 0) lijst.unshift(browserTz);
+    return lijst;
+  }
+
+  function api(pad, opties) {
+    return fetch(API + pad, opties).then(function (r) {
+      return r.json().catch(function () { return { ok: false, fout: 'Onverwacht antwoord (' + r.status + ').' }; })
+        .then(function (d) { d._status = r.status; return d; });
+    }).catch(function () { return { ok: false, fout: 'Geen verbinding. Controleer je internet en probeer het nog eens.' }; });
+  }
+  function post(pad, body) {
+    return api(pad, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  }
+
+  // ── Huisstijl uit de instellingen ───────────────────────────────────────
+  function hexNaarRgb(h) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h || '');
+    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
+  }
+  function pasStijlToe(d) {
+    var r = document.documentElement.style, k = d.kleuren || {};
+    if (k.accent) {
+      r.setProperty('--accent', k.accent);
+      var rgb = hexNaarRgb(k.accent);
+      if (rgb) { r.setProperty('--accent-zacht', 'rgba(' + rgb.join(',') + ',.10)'); r.setProperty('--accent-zachter', 'rgba(' + rgb.join(',') + ',.18)'); }
+    }
+    if (k.tekst) r.setProperty('--ink', k.tekst);
+    if (k.achtergrond) r.setProperty('--bg', k.achtergrond);
+    var kop = document.getElementById('kop');
+    leeg(kop);
+    var merk = d.logo_url ? el('img', { src: d.logo_url, alt: d.bedrijf || d.eigenaar }) : el('span', { text: d.bedrijf || d.eigenaar });
+    kop.appendChild(d.website ? el('a', { href: d.website }, [merk]) : merk);
+    var voet = document.getElementById('voet');
+    leeg(voet);
+    voet.appendChild(document.createTextNode([d.eigenaar, d.bedrijf].filter(Boolean).join(', ') + '. Vragen? Mail '));
+    voet.appendChild(el('a', { href: 'mailto:' + d.contact, text: d.contact }));
+    voet.appendChild(document.createTextNode('.'));
+    document.title = d.titel || 'Plan een afspraak';
+  }
+
+  // ── Route ───────────────────────────────────────────────────────────────
+  var pad0 = location.pathname.replace(/\/+$/, '');
+  var rest = pad0.indexOf(BASIS) === 0 ? pad0.slice(BASIS.length).replace(/^\//, '') : '';
+  var delenPad = rest ? rest.split('/') : [];
+
+  api('/api/pagina').then(function (d) {
+    if (d.ok) { P = d; pasStijlToe(d); }
+    if (delenPad.length === 0 || delenPad[0] === 'index.html') overzicht();
+    else if (delenPad[0] === 'beheer' && /^[0-9a-f]{64}$/.test(delenPad[1] || '')) beheer(delenPad[1]);
+    else if (/^[a-z0-9-]{1,80}$/.test(delenPad[0])) boeken(delenPad[0]);
+    else nietGevonden();
+  });
+
+  function nietGevonden() {
+    toon(el('div', null, [
+      el('h1', { class: 'stap-titel', text: 'Deze link klopt niet' }),
+      el('p', { class: 'stil', text: 'Controleer de link, of kies hieronder een afspraak.' }),
+      el('a', { class: 'knop', href: BASIS + '/', text: 'Alle afspraken' })
+    ]));
+  }
+
+  // ── Overzicht ───────────────────────────────────────────────────────────
+  function overzicht() {
+    api('/api/soorten').then(function (d) {
+      if (!d.ok) return toon(el('div', { class: 'melding fout', text: d.fout || 'Kon de lijst niet laden.' }));
+      var lijst = el('div', { class: 'lijst' });
+      d.soorten.forEach(function (t) {
+        lijst.appendChild(el('a', { class: 'type', href: BASIS + '/' + t.slug }, [
+          el('b', { text: t.naam }),
+          el('small', { text: t.duur_min + ' minuten' + (t.plek ? ', ' + t.plek : '') })
+        ]));
+      });
+      toon(el('div', null, [
+        el('h1', { class: 'info', text: P.titel || 'Plan een afspraak' }),
+        P.intro ? el('p', { class: 'stil', text: P.intro }) : null,
+        el('div', { style: 'height:16px' }),
+        lijst
+      ]));
+    });
+  }
+
+  // ── Kalender + tijden (gedeeld door boeken en verzetten) ────────────────
+  // Geeft een element terug en roept opTijd(startMs) aan zodra er een tijd gekozen is.
+  function kiezer(soort, opTijd) {
+    var wrap = el('div');
+    var nu = Date.now();
+    var horizonMs = nu + (soort.horizon_dagen || 60) * 86400000;
+    var vandaag = delen(nu, tijdzone);
+    var jaar = vandaag.j, maand = vandaag.m;
+    var cache = {};        // 'YYYY-MM' -> [ms]
+    var gekozenDag = null; // 'YYYY-MM-DD'
+    var bericht = null;
+
+    function tijdenVoorMaand(j, m) {
+      var sleutel = j + '-' + pad(m);
+      if (cache[sleutel]) return Promise.resolve(cache[sleutel]);
+      // Een dag extra aan beide kanten: in een andere tijdzone schuift een tijd over de maandgrens.
+      var van = new Date(Date.UTC(j, m - 1, 1) - 86400000), tot = new Date(Date.UTC(j, m, 0) + 86400000);
+      var q = '?slug=' + encodeURIComponent(soort.slug) + '&van=' + van.toISOString().slice(0, 10) + '&tot=' + tot.toISOString().slice(0, 10);
+      return api('/api/tijden' + q).then(function (d) {
+        if (!d.ok) { bericht = d.fout || 'Kon de tijden niet laden.'; return []; }
+        bericht = null;
+        cache[sleutel] = d.tijden.filter(function (ms) { return ms > nu && ms <= horizonMs; });
+        return cache[sleutel];
+      });
+    }
+
+    function render() {
+      leeg(wrap);
+      wrap.appendChild(el('div', { class: 'laden', text: 'Tijden ophalen...' }));
+      tijdenVoorMaand(jaar, maand).then(function (tijden) {
+        var perDag = {};
+        tijden.forEach(function (ms) { var k = dagSleutel(ms, tijdzone); (perDag[k] = perDag[k] || []).push(ms); });
+        leeg(wrap);
+        if (bericht) wrap.appendChild(el('div', { class: 'melding fout', text: bericht }));
+
+        if (gekozenDag && perDag[gekozenDag]) {
+          wrap.appendChild(el('button', { class: 'terug', onclick: function () { gekozenDag = null; render(); }, text: '← Andere dag' }));
+          wrap.appendChild(el('h2', { class: 'stap-titel', text: dagTekst(perDag[gekozenDag][0], tijdzone) }));
+          var knoppen = el('div', { class: 'tijden' });
+          perDag[gekozenDag].forEach(function (ms) {
+            knoppen.appendChild(el('button', { class: 'tijd', text: tijdTekst(ms, tijdzone), onclick: function () { opTijd(ms); } }));
+          });
+          wrap.appendChild(knoppen);
+          wrap.appendChild(tzKeuze());
+          return;
+        }
+
+        var eersteMaand = vandaag.j * 12 + vandaag.m, dezeMaand = jaar * 12 + maand;
+        var hz = delen(horizonMs, tijdzone), laatsteMaand = hz.j * 12 + hz.m;
+        wrap.appendChild(el('h2', { class: 'stap-titel', text: 'Kies een dag' }));
+        wrap.appendChild(el('div', { class: 'maand-nav' }, [
+          el('button', { class: 'pijl', 'aria-label': 'Vorige maand', disabled: dezeMaand <= eersteMaand, onclick: function () { maand--; if (maand < 1) { maand = 12; jaar--; } render(); }, text: '‹' }),
+          el('strong', { text: maandTekst(jaar, maand) }),
+          el('button', { class: 'pijl', 'aria-label': 'Volgende maand', disabled: dezeMaand >= laatsteMaand, onclick: function () { maand++; if (maand > 12) { maand = 1; jaar++; } render(); }, text: '›' })
+        ]));
+        var raster = el('div', { class: 'kalender' });
+        ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].forEach(function (w) { raster.appendChild(el('div', { class: 'wd', text: w })); });
+        var start = (new Date(Date.UTC(jaar, maand - 1, 1)).getUTCDay() + 6) % 7;
+        for (var i = 0; i < start; i++) raster.appendChild(el('div'));
+        var dagen = new Date(Date.UTC(jaar, maand, 0)).getUTCDate();
+        var vandaagSleutel = vandaag.j + '-' + pad(vandaag.m) + '-' + pad(vandaag.d);
+        for (var d = 1; d <= dagen; d++) {
+          (function (d) {
+            var k = jaar + '-' + pad(maand) + '-' + pad(d);
+            var vrij = !!perDag[k];
+            raster.appendChild(el('button', {
+              class: 'dag' + (vrij ? ' vrij' : '') + (k === vandaagSleutel ? ' vandaag' : ''),
+              disabled: !vrij, text: String(d),
+              onclick: vrij ? function () { gekozenDag = k; render(); } : null
+            }));
+          })(d);
+        }
+        wrap.appendChild(raster);
+        if (!tijden.length && !bericht) wrap.appendChild(el('p', { class: 'stil', style: 'margin-top:12px', text: 'Deze maand is vol. Kijk een maand verder.' }));
+        wrap.appendChild(tzKeuze());
+      });
+    }
+
+    function tzKeuze() {
+      var sel = el('select', { onchange: function () { tijdzone = sel.value; cache = {}; gekozenDag = null; render(); } });
+      tijdzones().forEach(function (tz) { sel.appendChild(el('option', { value: tz, selected: tz === tijdzone, text: tzLabel(tz) })); });
+      return el('div', { class: 'tijdzone' }, ['Tijden in: ', sel]);
+    }
+
+    render();
+    return wrap;
+  }
+
+  // ── Boeken ──────────────────────────────────────────────────────────────
+  function boeken(slug) {
+    api('/api/soort?slug=' + encodeURIComponent(slug)).then(function (d) {
+      if (!d.ok) return nietGevonden();
+      var soort = d.soort;
+      document.title = soort.naam + (P.bedrijf ? ' | ' + P.bedrijf : '');
+      var rechts = el('div');
+      var links = el('div', { class: 'info' }, [
+        P.eigenaar ? el('p', { class: 'met', text: 'Met ' + P.eigenaar }) : null,
+        el('h1', { text: soort.naam }),
+        el('span', { class: 'badge', text: '⏱ ' + soort.duur_min + ' minuten' }),
+        soort.plek ? el('span', { class: 'badge', text: '📍 ' + soort.plek }) : null,
+        soort.beschrijving ? el('p', { class: 'omschrijving', text: soort.beschrijving }) : null
+      ]);
+      toon(el('div', { class: 'raster' }, [links, rechts]));
+
+      function stapKiezen() {
+        leeg(rechts);
+        rechts.appendChild(kiezer(soort, stapFormulier));
+      }
+
+      function stapFormulier(startMs) {
+        leeg(rechts);
+        var fout = el('div');
+        var form = el('form', { novalidate: true });
+        form.appendChild(el('button', { type: 'button', class: 'terug', onclick: stapKiezen, text: '← Ander moment' }));
+        form.appendChild(el('div', { class: 'keuze' }, [
+          el('div', null, [el('b', { text: dagTekst(startMs, tijdzone) + ', ' + tijdTekst(startMs, tijdzone) }), el('span', { text: soort.duur_min + ' minuten, ' + tzLabel(tijdzone) })]),
+          el('button', { type: 'button', onclick: stapKiezen, text: 'wijzig' })
+        ]));
+        form.appendChild(el('h2', { class: 'stap-titel', text: 'Je gegevens' }));
+        form.appendChild(fout);
+        var naam = el('input', { type: 'text', name: 'naam', autocomplete: 'name', required: true, value: qs.get('naam') || qs.get('name') || '' });
+        var email = el('input', { type: 'email', name: 'email', autocomplete: 'email', required: true, value: qs.get('email') || '' });
+        form.appendChild(el('div', { class: 'veld' }, [el('label', { text: 'Naam' }), naam]));
+        form.appendChild(el('div', { class: 'veld' }, [el('label', { text: 'E-mail' }), email]));
+        var velden = [];
+        (soort.vragen || []).forEach(function (v) {
+          var lbl = el('label', null, [v.label, v.verplicht ? null : el('span', { class: 'opt', text: ' (optioneel)' })]);
+          var invoer, lees;
+          if (v.soort === 'tekst') { invoer = el('textarea', { name: v.id }); lees = function () { return invoer.value; }; }
+          else if (v.soort === 'telefoon') { invoer = el('input', { type: 'tel', name: v.id, autocomplete: 'tel' }); lees = function () { return invoer.value; }; }
+          else if (v.soort === 'keuze') {
+            invoer = el('select', { class: 'keuze-select', name: v.id });
+            invoer.appendChild(el('option', { value: '', text: 'Kies...' }));
+            (v.opties || []).forEach(function (o) { invoer.appendChild(el('option', { value: o, text: o })); });
+            lees = function () { return invoer.value; };
+          } else if (v.soort === 'meerkeuze') {
+            invoer = el('div', { class: 'opties' });
+            var boxes = [];
+            (v.opties || []).forEach(function (o) { var b = el('input', { type: 'checkbox', value: o }); boxes.push(b); invoer.appendChild(el('label', null, [b, o])); });
+            lees = function () { return boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }); };
+          } else { invoer = el('input', { type: 'text', name: v.id }); lees = function () { return invoer.value; }; }
+          velden.push({ vraag: v, lees: lees });
+          form.appendChild(el('div', { class: 'veld' }, [lbl, invoer]));
+        });
+        form.appendChild(el('div', { class: 'honing' }, [el('label', { text: 'Website' }), el('input', { type: 'text', name: 'website', tabindex: '-1', autocomplete: 'off' })]));
+        var knop = el('button', { class: 'knop', type: 'submit', text: 'Afspraak bevestigen' });
+        form.appendChild(el('div', { class: 'knoppen' }, [knop]));
+        form.appendChild(el('p', { class: 'stil', style: 'margin-top:14px', text: 'Je krijgt meteen een bevestiging per mail, en een uitnodiging voor je agenda.' }));
+
+        form.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          leeg(fout);
+          if (!naam.value.trim()) return fout.appendChild(el('div', { class: 'melding fout', text: 'Vul je naam in.' }));
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) return fout.appendChild(el('div', { class: 'melding fout', text: 'Dat e-mailadres klopt niet helemaal.' }));
+          var antwoorden = [];
+          for (var i = 0; i < velden.length; i++) {
+            var w = velden[i].lees();
+            var leegVeld = Array.isArray(w) ? !w.length : !String(w).trim();
+            if (velden[i].vraag.verplicht && leegVeld) return fout.appendChild(el('div', { class: 'melding fout', text: 'Vul nog even in: ' + velden[i].vraag.label }));
+            antwoorden.push({ id: velden[i].vraag.id, antwoord: w });
+          }
+          knop.disabled = true; knop.textContent = 'Even geduld...';
+          post('/api/boek', {
+            slug: soort.slug, start: startMs, naam: naam.value.trim(), email: email.value.trim(), antwoorden: antwoorden,
+            tijdzone: tijdzone, website: form.website.value
+          }).then(function (d) {
+            if (!d.ok) {
+              knop.disabled = false; knop.textContent = 'Afspraak bevestigen';
+              var m = el('div', { class: 'melding fout', text: d.fout || 'Er ging iets mis. Probeer het nog eens.' });
+              if (d.code === 'bezet') m.appendChild(el('div', { style: 'margin-top:6px' }, [el('button', { type: 'button', class: 'terug', onclick: stapKiezen, text: 'Kies een ander moment →' })]));
+              fout.appendChild(m);
+              return;
+            }
+            stapKlaar(d);
+          });
+        });
+        rechts.appendChild(form);
+        naam.value ? email.focus() : naam.focus();
+      }
+
+      function stapKlaar(d) {
+        leeg(rechts);
+        rechts.appendChild(el('div', { class: 'klaar' }, [
+          el('div', { class: 'vink', text: '✓' }),
+          el('h2', { text: 'Staat genoteerd!' }),
+          el('p', { class: 'stil', text: 'Je krijgt zo een bevestiging per mail, en een uitnodiging voor je agenda.' }),
+          el('div', { style: 'margin:18px 0' }, [
+            el('div', { class: 'detail' }, [el('span', { text: 'Wat' }), el('span', { text: d.soort_naam + ' (' + d.duur_min + ' min)' })]),
+            el('div', { class: 'detail' }, [el('span', { text: 'Wanneer' }), el('span', { text: dagTekst(d.start, tijdzone) + ' om ' + tijdTekst(d.start, tijdzone) + (tijdzone !== P.tijdzone ? ' (' + tzLabel(tijdzone) + ')' : '') })]),
+            d.vergaderlink ? el('div', { class: 'detail' }, [el('span', { text: 'Waar' }), el('a', { href: d.vergaderlink, text: soort.plek || 'Online' })])
+              : (soort.plek ? el('div', { class: 'detail' }, [el('span', { text: 'Waar' }), el('span', { text: soort.plek })]) : null)
+          ]),
+          el('div', { class: 'knoppen' }, [
+            d.vergaderlink ? el('a', { class: 'knop', href: d.vergaderlink, text: 'Vergaderlink openen' }) : null,
+            el('a', { class: 'knop licht', href: BASIS + '/beheer/' + d.token, text: 'Verzetten of annuleren' })
+          ])
+        ]));
+      }
+
+      stapKiezen();
+    });
+  }
+
+  // ── Beheer: verzetten of annuleren (gast), of de stand van de eigenaar ──
+  // Eigenaar: dezelfde pagina met ?eigenaar=1. De pagina vraagt een keer om de
+  // beheersleutel en bewaart die in deze browser. Afzeggen gaat dan met een
+  // reden die de gast letterlijk te lezen krijgt, verzetten mailt de gast.
+  function bewaardeSleutel() { try { return localStorage.getItem(SLEUTEL_KEY) || ''; } catch (e) { return ''; } }
+  function bewaarSleutel(v) { try { if (v) localStorage.setItem(SLEUTEL_KEY, v); else localStorage.removeItem(SLEUTEL_KEY); } catch (e) {} }
+
+  function beheer(token) {
+    var alsEigenaar = qs.get('eigenaar') !== null;
+    var doos = el('div');
+    toon(doos);
+
+    function vraagSleutel(foutTekst) {
+      bewaarSleutel('');
+      leeg(doos);
+      var invoer = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Beheersleutel' });
+      var fout = el('div');
+      var form = el('form', { novalidate: true, onsubmit: function (ev) {
+        ev.preventDefault();
+        if (!invoer.value.trim()) return;
+        bewaarSleutel(invoer.value.trim());
+        laad();
+      } });
+      form.appendChild(el('p', { class: 'met', text: 'Beheren als ' + (voornaam(P.eigenaar) || 'eigenaar') }));
+      form.appendChild(el('h1', { class: 'info', style: 'font-size:24px;margin:0 0 14px', text: 'Beheersleutel' }));
+      if (foutTekst) fout.appendChild(el('div', { class: 'melding fout', text: foutTekst }));
+      form.appendChild(fout);
+      form.appendChild(el('p', { class: 'stil', style: 'margin:0 0 14px', text: 'Een keer invullen, daarna onthoudt deze browser hem. Kwijt? Vraag Claude in de map van je boekingspagina: "wat is mijn beheersleutel?"' }));
+      form.appendChild(el('div', { class: 'veld' }, [invoer]));
+      form.appendChild(el('div', { class: 'knoppen' }, [el('button', { class: 'knop', type: 'submit', text: 'Verder' })]));
+      doos.appendChild(form);
+      invoer.focus();
+    }
+
+    function laad() {
+      leeg(doos); doos.appendChild(el('div', { class: 'laden', text: 'Even laden...' }));
+      var url = '/api/boeking?token=' + token + (alsEigenaar ? '&eigenaar=' + encodeURIComponent(bewaardeSleutel()) : '');
+      api(url).then(function (d) {
+        if (alsEigenaar && d.code === 'sleutel') return vraagSleutel(bewaardeSleutel() ? 'Die sleutel klopt niet.' : null);
+        if (!d.ok) return nietGevonden();
+        var b = d.boeking;
+        if (b.tijdzone) { try { new Intl.DateTimeFormat('nl-NL', { timeZone: b.tijdzone }); tijdzone = b.tijdzone; } catch (e) {} }
+        if (alsEigenaar) tijdzone = P.tijdzone;
+        overzichtBoeking(b, null);
+      });
+    }
+
+    function extra() { return alsEigenaar ? { eigenaar: bewaardeSleutel() } : {}; }
+    function gast(b) { return voornaam(b.naam) || 'je gast'; }
+
+    function overzichtBoeking(b, melding) {
+      leeg(doos);
+      var geannuleerd = b.status === 'geannuleerd';
+      doos.appendChild(el('p', { class: 'met', text: alsEigenaar ? 'Beheren als ' + (voornaam(P.eigenaar) || 'eigenaar') : (P.eigenaar ? 'Je afspraak met ' + P.eigenaar : 'Je afspraak') }));
+      doos.appendChild(el('h1', { class: 'info', style: 'font-size:24px;margin:0 0 14px', text: b.soort_naam }));
+      if (melding) doos.appendChild(melding);
+      var rijen = [
+        el('div', { class: 'detail' }, [el('span', { text: 'Status' }), el('span', { text: geannuleerd ? 'Geannuleerd' + (b.geannuleerd_door ? ' (door ' + (b.geannuleerd_door === 'eigenaar' ? (voornaam(P.eigenaar) || 'de eigenaar') : 'de gast') + ')' : '') : (b.voorbij ? 'Al geweest' : 'Staat gepland') })]),
+        el('div', { class: 'detail' }, [el('span', { text: 'Wanneer' }), el('span', { text: dagTekst(b.start, tijdzone) + ' om ' + tijdTekst(b.start, tijdzone) + ' (' + tzLabel(tijdzone) + ')' })]),
+        el('div', { class: 'detail' }, [el('span', { text: 'Duur' }), el('span', { text: b.duur_min + ' minuten' })]),
+        b.vergaderlink && !geannuleerd ? el('div', { class: 'detail' }, [el('span', { text: 'Waar' }), el('a', { href: b.vergaderlink, text: b.plek || 'Online' })])
+          : (b.plek && !geannuleerd ? el('div', { class: 'detail' }, [el('span', { text: 'Waar' }), el('span', { text: b.plek })]) : null)
+      ];
+      if (alsEigenaar) {
+        rijen.push(el('div', { class: 'detail' }, [el('span', { text: 'Gast' }), el('span', null, [b.naam + ' ', el('a', { href: 'mailto:' + (b.email || ''), text: b.email || '' })])]));
+        if (b.tijdzone && b.tijdzone !== P.tijdzone) rijen.push(el('div', { class: 'detail' }, [el('span', { text: 'Tijdzone gast' }), el('span', { text: tzLabel(b.tijdzone) })]));
+        (b.antwoorden || []).forEach(function (a) {
+          if (a.antwoord) rijen.push(el('div', { class: 'detail' }, [el('span', { text: a.vraag.length > 60 ? a.vraag.slice(0, 57) + '...' : a.vraag }), el('span', { style: 'white-space:pre-line', text: a.antwoord })]));
+        });
+        if (geannuleerd && b.annuleer_reden) rijen.push(el('div', { class: 'detail' }, [el('span', { text: 'Reden' }), el('span', { text: b.annuleer_reden })]));
+      }
+      doos.appendChild(el('div', null, rijen));
+      var knoppen = el('div', { class: 'knoppen', style: 'margin-top:20px' });
+      if (!geannuleerd && !b.voorbij) {
+        knoppen.appendChild(el('button', { class: 'knop', onclick: function () { verzetten(b); }, text: alsEigenaar ? 'Verzetten (' + gast(b) + ' krijgt mail)' : 'Verzetten' }));
+        knoppen.appendChild(el('button', { class: 'knop rood', onclick: function () { annuleren(b); }, text: alsEigenaar ? 'Afzeggen met reden' : 'Annuleren' }));
+      } else if (!alsEigenaar) {
+        knoppen.appendChild(el('a', { class: 'knop', href: BASIS + '/' + b.soort_slug, text: 'Nieuwe afspraak maken' }));
+      }
+      doos.appendChild(knoppen);
+      if (alsEigenaar) doos.appendChild(el('p', { class: 'stil', style: 'margin-top:18px' }, [el('a', { href: BASIS + '/beheer/' + token, text: 'Bekijk wat je gast ziet' }), ' · ', el('a', { href: '#', onclick: function (ev) { ev.preventDefault(); vraagSleutel(null); }, text: 'Sleutel wissen' })]));
+    }
+
+    function verzetten(b) {
+      leeg(doos);
+      doos.appendChild(el('button', { class: 'terug', onclick: function () { overzichtBoeking(b, null); }, text: '← Terug' }));
+      doos.appendChild(el('p', { class: 'stil', style: 'margin:0 0 14px', text: 'Nu: ' + dagTekst(b.start, tijdzone) + ' om ' + tijdTekst(b.start, tijdzone) + '. Kies een nieuw moment.' + (alsEigenaar ? ' ' + gast(b) + ' krijgt daarna een mail met het nieuwe moment.' : '') }));
+      var fout = el('div'); doos.appendChild(fout);
+      doos.appendChild(kiezer({ slug: b.soort_slug, horizon_dagen: b.horizon_dagen || 60 }, function (startMs) {
+        leeg(fout);
+        fout.appendChild(el('div', { class: 'melding info', text: 'Verzetten naar ' + dagTekst(startMs, tijdzone) + ' ' + tijdTekst(startMs, tijdzone) + '...' }));
+        post('/api/verzet', Object.assign({ token: token, start: startMs, tijdzone: tijdzone }, extra())).then(function (d) {
+          if (!d.ok) { leeg(fout); fout.appendChild(el('div', { class: 'melding fout', text: d.fout || 'Verzetten lukte niet.' })); return; }
+          b.start = d.start; b.einde = d.einde;
+          overzichtBoeking(b, el('div', { class: 'melding info', text: alsEigenaar ? 'Verzet. ' + gast(b) + ' heeft de mail met het nieuwe moment gekregen.' : 'Verzet. Je krijgt een mail, en de uitnodiging in je agenda schuift mee.' }));
+        });
+      }));
+    }
+
+    function annuleren(b) {
+      leeg(doos);
+      doos.appendChild(el('button', { class: 'terug', onclick: function () { overzichtBoeking(b, null); }, text: '← Terug' }));
+      doos.appendChild(el('h2', { class: 'stap-titel', text: alsEigenaar ? 'Afzeggen met reden' : 'Afspraak annuleren' }));
+      doos.appendChild(el('p', { class: 'stil', style: 'margin:0 0 14px', text: dagTekst(b.start, tijdzone) + ' om ' + tijdTekst(b.start, tijdzone) + ', ' + b.soort_naam + (alsEigenaar ? ', met ' + b.naam : '') + '.' }));
+      var reden = el('textarea', { placeholder: alsEigenaar ? 'Bijvoorbeeld: Er kwam iets tussen. Kies gerust een nieuw moment via dezelfde link.' : 'Wil je laten weten waarom? (mag leeg)' });
+      var fout = el('div');
+      if (alsEigenaar) doos.appendChild(el('label', { text: 'Dit krijgt ' + gast(b) + ' te lezen, uit jouw naam:' }));
+      var knop = el('button', { class: 'knop rood', text: alsEigenaar ? 'Afzeggen en mailen' : 'Ja, annuleer', onclick: function () {
+        leeg(fout);
+        if (alsEigenaar && !reden.value.trim()) return fout.appendChild(el('div', { class: 'melding fout', text: 'Zonder reden geen afzegging: die tekst is de mail aan je gast.' }));
+        knop.disabled = true;
+        post('/api/annuleer', Object.assign({ token: token, reden: reden.value }, extra())).then(function (d) {
+          if (!d.ok) { knop.disabled = false; leeg(fout); fout.appendChild(el('div', { class: 'melding fout', text: d.fout || 'Annuleren lukte niet.' })); return; }
+          b.status = 'geannuleerd'; b.geannuleerd_door = alsEigenaar ? 'eigenaar' : 'gast'; b.annuleer_reden = reden.value.trim();
+          overzichtBoeking(b, el('div', { class: 'melding info', text: alsEigenaar ? 'Afgezegd. ' + gast(b) + ' heeft je mail, en het agenda-item is weg.' : 'Geannuleerd. Je krijgt nog een mail ter bevestiging.' }));
+        });
+      } });
+      doos.appendChild(el('div', { class: 'veld' }, [reden]));
+      doos.appendChild(fout);
+      doos.appendChild(el('div', { class: 'knoppen' }, [knop, el('button', { class: 'knop licht', onclick: function () { overzichtBoeking(b, null); }, text: 'Toch niet' })]));
+    }
+
+    laad();
+  }
+})();
+</script>
+</body>
+</html>
